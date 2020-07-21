@@ -1,0 +1,58 @@
+---
+title: "R Notebook for Logistic Regression"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+plot(cars)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+library(caret)
+
+# Loading data
+default <- as_tibble(ISLR::Default)
+
+# Splitting data
+set.seed(123)
+sample <- sample(c(TRUE, FALSE), nrow(default), replace = T, prob = c(0.7,0.3))
+train <- default[sample, ]
+test <- default[!sample, ]
+
+# model1 is a simple logisitic regression model
+model1 <- glm(default ~ balance, family = "binomial", data = train)
+summary(model1)
+
+#plotting model 1
+default %>%
+  mutate(prob = ifelse(default == "Yes", 1, 0)) %>%
+  ggplot(aes(balance, prob)) +
+  geom_point(alpha = .15) +
+  geom_smooth(method = "glm", method.args = list(family = "binomial")) +
+  ggtitle("Logistic regression model fit") +
+  xlab("Balance") +
+  ylab("Probability of Default")
+
+# model 2 is multiple logistic regression
+model2 <- glm(default ~ balance + income + student, family = "binomial", data = train)
+summary(model2)
+# We see that income is not statistically significant, so we amend the model
+
+model2 <- glm(default ~ balance + student, family = "binomial", data = train)
+summary(model2)
+
+#checking importance of predictors
+caret::varImp(model2)
+
+#comparing model1 and model2
+anova(model1, model2, test = "Chisq")
+

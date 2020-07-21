@@ -1,0 +1,109 @@
+---
+title: "R Notebook for Multiple Linear Regression"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+plot(cars)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+
+# Packages
+library(tidyverse)  # data manipulation and visualization
+library(modelr)     # provides easy pipeline modeling functions
+library(broom)      # helps to tidy up model outputs
+library(ggplot2)
+library(car)
+
+# Load data (remove row numbers included as X1 variable)
+library(readr)
+advertising <- read_csv("RStudio/Advertising.csv")
+
+
+set.seed(123)
+sample <- sample(c(TRUE, FALSE), nrow(advertising), replace = T, prob = c(0.7,0.3))
+train <- advertising[sample, ]
+test <- advertising[!sample, ]
+
+# model 1 is a simple linear regression between sales and TV
+model1 <- lm(sales ~ TV, data = train)
+summary(model1)
+
+# model 2 utilizes multiple linear regression
+model2 <- lm(sales ~ TV + radio + newspaper, data = train)
+summary(model2)
+
+#since newspapaer did not meet the requistie p-value, it is removed
+model3 <- lm(sales ~ TV + radio, data=train)
+summary(model3)
+
+
+ggplot(train, aes(TV, sales)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  geom_smooth(se = FALSE, color = "red")
+
+# add model diagnostics to our training data
+model1_results <- augment(model1, train)
+
+ggplot(model1_results, aes(.fitted, .resid)) +
+  geom_ref_line(h = 0) +
+  geom_point() +
+  geom_smooth(se = FALSE) +
+  ggtitle("Residuals vs Fitted")
+
+# adding interaction terms 
+model3 <- lm(sales ~ TV + radio + TV * radio, data = train)  
+summary(model3)  
+
+# model4 plots exactly like model3, therefore we can use model4. 
+model4 <- lm(sales ~ TV * radio, data = train)  
+summary(model4)
+
+#model5 does not have an impact with the extra terms, therefore we do not use them in our main model. 
+model5 <- lm(sales ~ TV * radio + TV**2 + radio**2 + log(TV) + log(radio) + sqrt(TV) + sqrt(radio) + TV**3 + radio**3, data = train)
+
+summary(model5) 
+
+model5_results <- augment(model5, train)
+model4_results <- augment(model4, train)
+
+qq_plot <- qqnorm(model5_results$.resid)
+qq_plot <- qqline(model5_results$.resid)
+
+qq_plot <- qqnorm(model4_results$.resid)
+qq_plot <- qqline(model4_results$.resid)
+
+ggplot(model4_results, aes(.fitted, .resid)) +
+  geom_ref_line(h = 0) +
+  geom_point() +
+  geom_smooth(se = FALSE) +
+  ggtitle("Residuals vs Fitted")
+
+#plotting to see outliers and high-leverage points
+plot(advertising$sales, advertising$TV)
+plot(advertising$sales, advertising$radio)
+plot(advertising$sales, advertising$radio*advertising$TV)
+
+#checking VIF for collinearity
+car::vif(model4)
+
+# comparing test vs train predictors
+test %>% 
+  add_predictions(model4) %>%
+  summarise(MSE = mean((sales - pred)^2))
+
+train %>% 
+  add_predictions(model4) %>%
+  summarise(MSE = mean((sales - pred)^2))
+
